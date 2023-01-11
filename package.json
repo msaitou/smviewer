@@ -8,7 +8,9 @@
     "start": "node ./",
     "server": "node ./app.js",
     "client": "SET PORT=3002 && npm start --prefix client",
-    "dev": "concurrently \"npm run server\" \"npm run client\" "
+    "clientx": "PORT=3002 && npm start --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\" ",
+    "devx": "concurrently \"npm run server\" \"npm run clientx\" "
   },
   "author": "",
   "license": "ISC",
