@@ -7,7 +7,8 @@ function roundDecimal(value, n) {
 }
 
 function App() {
-  const url = "http://localhost:3333/";
+  console.log(window.location.hostname);
+  const url = `http://${window.location.hostname}:3333/`;
   const [data, setData] = useState([]);
   const [size, setSize] = useState([]);
   const [pastId, setPastId] = useState([]);
