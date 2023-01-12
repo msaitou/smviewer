@@ -7,8 +7,11 @@ function roundDecimal(value, n) {
 }
 
 function App() {
-  console.log(window.location.hostname);
-  const url = `http://${window.location.hostname}:3333/`;
+  console.log(window.location);
+  var url = `http://${window.location.hostname}:3333/`;
+  if (window.location.href.indexOf("https") > -1) {
+    url = `https://${window.location.hostname}/api/`;
+  }
   const [data, setData] = useState([]);
   const [size, setSize] = useState([]);
   const [pastId, setPastId] = useState([]);
