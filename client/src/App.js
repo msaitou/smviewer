@@ -14,8 +14,10 @@ function App() {
   }
   const [data, setData] = useState([]);
   const [size, setSize] = useState([]);
+  const [machines, setMachines] = useState([]);
   const [pastId, setPastId] = useState([]);
   const [columns, setColumns] = useState([]);
+
 
   function getYYMMDDStr(date) {
     let d = date ? date : new Date();
@@ -63,6 +65,18 @@ function App() {
         console.log(err);
         console.log("err");
       });
+    // キューに登録済みのマシンの取得
+    const params2 = { cond: "queuedMachines"};
+    const query2 = new URLSearchParams(params2);
+    fetch(`${url}?${query2}`, { method: "GET" })
+      .then((res) => res.json())
+      .then((recs) => {
+        setMachines(recs);
+      })
+      .catch((err) => {
+        console.log(err);
+        console.log("err");
+      });
   };
   // 最初に1回だけ
   useEffect(() => {
@@ -95,7 +109,7 @@ function App() {
     "raku",
     "dmy",
   ];
-  const DATE_COLUMNS = ["mod_date", "valid_from", "valid_to"];
+  const DATE_COLUMNS = ["mod_date", "from", "to"];
   // default props then custom props
   const combinedHeaderProps = (defaultHeaderProps, { column }) => {
     return [
@@ -153,23 +167,29 @@ function App() {
   return (
     <div className="App" style={{ padding: "10px 20px" }}>
       <div style={{ padding: "10px", overflow: "auto" }}>
-        <button className="btn btn-sm me-1 btn-primary" style={{float: "left"}} onClick={() => getDbRec("psTotal1")}>
+        <button className="btn btn-sm me-1 btn-primary" style={{ float: "left" }} onClick={() => getDbRec("psTotal1")}>
           summaryTotal1
         </button>
-        <button className="btn btn-sm me-1 btn-primary" style={{float: "left"}} onClick={() => getDbRec("psTotal2")}>
+        <button className="btn btn-sm me-1 btn-primary" style={{ float: "left" }} onClick={() => getDbRec("psTotal2")}>
           summaryTotal2
         </button>
-        <button className="btn btn-sm me-1 btn-primary" style={{float: "left"}} onClick={() => getDbRec("psDiff1")}>
+        <button className="btn btn-sm me-1 btn-primary" style={{ float: "left" }} onClick={() => getDbRec("psDiff1")}>
           summaryDiff1
         </button>
-        <button className="btn btn-sm me-1 btn-primary" style={{float: "left"}} onClick={() => getDbRec("psDiff2")}>
+        <button className="btn btn-sm me-1 btn-primary" style={{ float: "left" }} onClick={() => getDbRec("psDiff2")}>
           summaryDiff2
         </button>
-        <button className="btn btn-sm me-1 btn-success" style={{float: "left"}} onClick={() => getDbRec("mqNotDone")}>
+        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqNotDone")}>
           queNotDone
         </button>
-        <button className="btn btn-sm me-1 btn-success" style={{float: "left"}} onClick={() => getDbRec("mqPast")}>
+        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqPast")}>
           quePast
+        </button>
+        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqNow")}>
+          execNow
+        </button>
+        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqDone")}>
+          done
         </button>
       </div>
       <div style={{ padding: "0px 10PX", overflow: "auto" }} className="row align-items-center">
@@ -184,9 +204,18 @@ function App() {
           <button className="btn btn-sm me-1 btn-dark" onClick={() => getDbRec("mqhPast")}>
             queHistoryPast
           </button>
+          <button className="btn btn-sm me-1 btn-dark" onClick={() => getDbRec("mqhPastDone")}>
+            queHistoryPastDone
+          </button>
         </div>
+        <div className="input-group mb-3 col"></div>
       </div>
-      <div style={{ padding: "0px 20px" }}>全 {size} 件</div>
+      <div style={{ padding: "0px 20px","flex-wrap": "wrap" }} className="row">
+        <div className="col">全 {size} 件</div>
+        {machines.map(machine => (
+          <div className="col"><span className="badge bg-secondary">{machine}</span></div>
+        ))}
+      </div>
       <div style={{ padding: "0px 20px", overflow: "auto", maxHeight: "525px" }}>
         <table className="table" {...getTableProps()}>
           <thead>
@@ -205,7 +234,11 @@ function App() {
                 <tr {...row.getRowProps()}>
                   {row.cells.map((cell) => {
                     // console.log(cell);
-                    return <td {...cell.getCellProps(combinedCellProps)}>{cell.render("Cell")}</td>;
+                    return (
+                      <td {...cell.getCellProps(combinedCellProps)} className="text-nowrap">
+                        {cell.render("Cell")}
+                      </td>
+                    );
                   })}
                 </tr>
               );

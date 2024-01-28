@@ -56,20 +56,32 @@ app.get("/", async (req, res) => {
       opt = { limit: 30, sort: { _id: -1 } };
       coll = "point_summary";
       break;
-    case "mqNotDone":
+    case "mqNotDone": // 今日の未完了ミッションリスト
       opt = { sort: { machine: -1, "valid_time.to": 1, "valid_time.from": 1 } };
       cond = { status: { $ne: "done" } };
       coll = "mission_que";
       break;
-    case "mqPast":
+    case "mqPast": // 今日の完了しなかったミッションリスト
       opt = { sort: { machine: -1, "valid_time.to": 1, "valid_time.from": 1 } };
       cond = { status: { $ne: "done" }, "valid_time.to": { $lt: new Date() } };
       coll = "mission_que";
       break;
-    case "mqhPast":
+    case "mqhPast": // 過去の完了しなかったミッションリスト
+    case "mqhPastDone": // 過去の完了しなかったミッションリスト
       opt = { limit: 1, sort: { _id: -1 } };
       cond = params.pastId ? { _id: params.pastId } : {};
       coll = "mission_que_history";
+      break;
+    case "queuedMachines": // 今日の登録済みのマシン一覧
+      method = "distinct",
+      cond = "machine";
+      coll = "mission_que";
+      break;
+    case "mqDone": // 今日の完了ミッションリスト
+    case "mqNow": // 実行中ミッションリスト
+      opt = { sort: { machine: -1, "valid_time.to": 1, "valid_time.from": 1 } };
+      cond = { status: params.cond == "mqDone" ? "done" : "now" };
+      coll = "mission_que";
       break;
     default:
       res.json({});
@@ -94,34 +106,41 @@ app.get("/", async (req, res) => {
       }
     } else if (params.cond.indexOf("mq") === 0) {
       let tmpRec = [];
-      if (["mqNotDone", "mqPast"].indexOf(params.cond) > -1) {
+      if (["mqNotDone", "mqPast", "mqDone", "mqNow"].indexOf(params.cond) > -1) {
         recs.forEach((rec) => {
           tmpRec.push({
             main: rec.main,
             sub: rec.sub,
-            valid_from: rec.valid_time ? (rec.valid_time.from ? rec.valid_time.from : null) : null,
-            valid_to: rec.valid_time ? (rec.valid_time.to ? rec.valid_time.to : null) : null,
-            status: `${rec.status} [${rec.tryCnt?rec.tryCnt:"0"}]`,
+            from: rec.valid_time ? (rec.valid_time.from ? rec.valid_time.from : null) : null,
+            to: rec.valid_time ? (rec.valid_time.to ? rec.valid_time.to : null) : null,
+            status: `${rec.status} [${rec.tryCnt ? rec.tryCnt : "0"}]`,
             site_code: rec.site_code,
             machine: rec.machine,
             mod_date: rec.mod_date,
             mission_date: rec.mission_date,
+            exec_time: rec.exec_time,
+            exec_time_start: rec.exec_time_start,
           });
         });
         recs = tmpRec;
-      } else if (["mqhPast"].indexOf(params.cond) > -1) {
+      } else if (["mqhPast", "mqhPastDone"].indexOf(params.cond) > -1) {
         recs[0].details.forEach((rec) => {
-          if (rec.status != "done")
+          if (
+            (params.cond == "mqhPast" && rec.status != "done") ||
+            (params.cond == "mqhPastDone" && rec.status == "done")
+          )
             tmpRec.push({
               main: rec.main,
               sub: rec.sub,
-              valid_from: rec.valid_time ? (rec.valid_time.from ? rec.valid_time.from : null) : null,
-              valid_to: rec.valid_time ? (rec.valid_time.to ? rec.valid_time.to : null) : null,
-              status: `${rec.status} [${rec.tryCnt?rec.tryCnt:"0"}]`,
+              from: rec.valid_time ? (rec.valid_time.from ? rec.valid_time.from : null) : null,
+              to: rec.valid_time ? (rec.valid_time.to ? rec.valid_time.to : null) : null,
+              status: `${rec.status} [${rec.tryCnt ? rec.tryCnt : "0"}]`,
               site_code: rec.site_code,
               machine: rec.machine,
               mod_date: rec.mod_date,
               mission_date: rec.mission_date,
+              exec_time: rec.exec_time,
+              exec_time_start: rec.exec_time_start,
             });
         });
         recs = tmpRec;
@@ -154,6 +173,9 @@ async function db(coll, method, cond = {}, opt) {
         break;
       case "findOne":
         res = await collection.findOne(cond);
+        break;
+      case "distinct":
+        res = await collection.distinct(cond);
         break;
       // case "update":
       //   let cnt = 0;
