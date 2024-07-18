@@ -45,13 +45,15 @@ function App() {
             accessor: key,
             Cell: (row) => {
               if (NUM_COLUMNS.indexOf(key) > -1) return roundDecimal(row.value, 1);
-              else if (DATE_COLUMNS.indexOf(key) > -1) {
+              else if (DATE_COLUMNS.concat(TIME_COLUMNS).indexOf(key) > -1) {
                 // console.log("kind:" + kind);
                 if (row.value) {
                   let date = new Date(row.value);
-                  return kind.indexOf("mq") === 0
+                  return kind.indexOf("mq") === 0 && TIME_COLUMNS.indexOf(key) === -1
                     ? `${("00" + date.getHours()).slice(-2)}:${("00" + date.getMinutes()).slice(-2)}`
-                    : date.toLocaleTimeString();
+                    : key != "exec_time"
+                      ? date.toLocaleTimeString()
+                      : `${new Date(row.value).toISOString().substr(11, 8)}.${String(row.value).slice(-3)}`;
                 } else return "-";
               } else return row.value;
             },
@@ -110,6 +112,7 @@ function App() {
     "dmy",
   ];
   const DATE_COLUMNS = ["mod_date", "from", "to"];
+  const TIME_COLUMNS = ["exec_time", "exec_time_start"];
   // default props then custom props
   const combinedHeaderProps = (defaultHeaderProps, { column }) => {
     return [
