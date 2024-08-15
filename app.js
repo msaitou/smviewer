@@ -73,8 +73,10 @@ app.get("/", async (req, res) => {
       coll = "mission_que_history";
       break;
     case "queuedMachines": // 今日の登録済みのマシン一覧
-      method = "distinct",
-      cond = "machine";
+      let beforeNowDate = new Date();
+      beforeNowDate.setMinutes(beforeNowDate.getMinutes() - 60);
+      method = "distinct";
+      cond = { key: "machine", filter: { mod_date: { $gte: beforeNowDate } } };
       coll = "mission_que";
       break;
     case "mqDone": // 今日の完了ミッションリスト
@@ -175,7 +177,7 @@ async function db(coll, method, cond = {}, opt) {
         res = await collection.findOne(cond);
         break;
       case "distinct":
-        res = await collection.distinct(cond);
+        res = await collection.distinct(cond.key, cond.filter);
         break;
       // case "update":
       //   let cnt = 0;
