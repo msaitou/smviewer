@@ -10,7 +10,7 @@ function App() {
   console.log(window.location);
   var url = `http://${window.location.hostname}:3333/`;
   if (window.location.href.indexOf("https") > -1) {
-    url = `https://${window.location.hostname}${window.location.path}api/`;
+    url = `https://${window.location.hostname}${window.location.pathname}api/`;
   }
   const [data, setData] = useState([]);
   const [size, setSize] = useState([]);
