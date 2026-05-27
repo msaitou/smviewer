@@ -1,2 +1,4 @@
-config/default.json
 /node_modules
+config/
+package-lock.json
+client/package-lock.json

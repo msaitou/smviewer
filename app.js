@@ -15,14 +15,14 @@ const D = {
     PEX: "pex",
     CMS: "cms",
     GPO: "gpo",
-    GEN: "gen",
+    // GEN: "gen",
     SUG: "sug",
     LFM: "lfm",
     PST: "pst",
     PIL: "pil",
     AME: "ame",
     RAKU: "raku",
-    DMY: "dmy",
+    // DMY: "dmy",
   },
 };
 app.use((req, res, next) => {
@@ -154,53 +154,106 @@ app.get("/", async (req, res) => {
 });
 
 app.listen(port);
-const mdb = require("mongodb");
-async function db(coll, method, cond = {}, opt) {
-  const dbClient = mdb.MongoClient;
-  try {
-    let db = await dbClient.connect(`mongodb://${conf.db.host}/`);
-    const dbName = db.db("sm");
-    const collection = dbName.collection(coll);
-    let res;
-    switch (method) {
-      case "find":
-        res = await collection.find(cond);
-        if (opt.sort) {
-          res = await res.sort(opt.sort);
+let db;
+if (conf?.db?.nouse) {
+  // mongodbを使わずにdefault.jsonに書いたデータを直接使って試す
+
+db = async function(coll, method, cond = {}, opt = {}) {
+  // 対象コレクションのデータを取得
+  const data = conf.testdata[coll] ? JSON.parse(JSON.stringify(conf.testdata[coll])): [];
+  if (coll === "mission_que") {
+    data.forEach((r) => {
+      r.valid_time = { from: r.from, to: r.to };
+    });
+  } else if (coll === "point_summary") {
+    data.forEach((r) => {
+      Object.values(D.CODE).forEach((val) => {
+        r[val] = { diff: r[val], p: r[val] };
+      });
+    });
+  }
+  // 条件に合致するか判定するヘルパー関数
+  const matchCondition = (item, cond) => {
+    return Object.entries(cond).every(([key, val]) => {
+      if (val && typeof val === "object") {
+        // $ne 演算子対応
+        if (val.$ne !== undefined) {
+          return item[key] !== val.$ne;
         }
-        if (opt.limit) {
-          res = await res.limit(opt.limit);
-        }
-        res = await res.toArray();
-        break;
-      case "findOne":
-        res = await collection.findOne(cond);
-        break;
-      case "distinct":
-        res = await collection.distinct(cond.key, cond.filter);
-        break;
-      // case "update":
-      //   let cnt = 0;
-      //   if (cond) {
-      //     cnt = await collection.countDocuments(cond);
-      //   }
-      //   if (cnt) {
-      //     res = await collection.updateOne(cond, { $set: doc });
-      //   } else {
-      //     // insert
-      //     res = await collection.insertOne(doc);
-      //   }
-      //   break;
-      // case "insertMany":
-      //   res = await collection.insertMany(doc);
-      //   break;
-      // case "delete":
-      //   res = await collection.deleteMany(doc);
-      default:
+        // 他の演算子も同様に追加可能
+        // 例: $eq, $gt, $lt, $in など
+      }
+      // 単純な等価比較
+      return item[key] === val;
+    });
+  };
+  switch (method) {
+    case "find": {
+      let res = data.filter(item => matchCondition(item, cond));
+
+      // ソート処理（{ field: 1/-1 }）
+      if (opt.sort) {
+        const [[field, order]] = Object.entries(opt.sort);
+        res.sort((a, b) => (a[field] > b[field] ? order : a[field] < b[field] ? -order : 0));
+      }
+
+      // リミット処理
+      if (opt.limit) {
+        res = res.slice(0, opt.limit);
+      }
+
+      return res;
     }
-    db.close();
-    return res;
-  } catch (e) {
-    throw e;
+    case "findOne": {
+      return data.find(item => matchCondition(item, cond)) || null;
+    }
+    case "distinct": {
+      const key = cond.key;
+      if (!key) return [];
+      // const filterCond = cond.filter || {};
+      const filterCond = {};
+      const filtered = data.filter(item => matchCondition(item, filterCond));
+      const distinctSet = new Set(filtered.map(item => item[key]));
+      return Array.from(distinctSet);
+    }
+    default:
+      throw new Error(`Unsupported method: ${method}`);
   }
 }
+}
+else if (conf?.db?.host) {
+  const mdb = require("mongodb");
+  db = async function(coll, method, cond = {}, opt) {
+    const dbClient = mdb.MongoClient;
+    try {
+      let db = await dbClient.connect(`mongodb://${conf.db.host}/`);
+      const dbName = db.db("sm");
+      const collection = dbName.collection(coll);
+      let res;
+      switch (method) {
+        case "find":
+          res = await collection.find(cond);
+          if (opt.sort) {
+            res = await res.sort(opt.sort);
+          }
+          if (opt.limit) {
+            res = await res.limit(opt.limit);
+          }
+          res = await res.toArray();
+          break;
+        case "findOne":
+          res = await collection.findOne(cond);
+          break;
+        case "distinct":
+          res = await collection.distinct(cond.key, cond.filter);
+          break;
+        default:
+      }
+      db.close();
+      return res;
+    } catch (e) {
+      throw e;
+    }
+  }
+}
+
