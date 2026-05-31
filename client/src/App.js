@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useTable } from "react-table";
 import "./App.css";
-import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
+import { Box, Chip, Tooltip } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { createTheme, ThemeProvider } from "@mui/material/styles";
+
+// #region ユーティリティ関数群
 // 四捨五入
 function roundDecimal(value, n) {
   return Math.round(value * Math.pow(10, n)) / Math.pow(10, n);
 }
-
 function getYYMMDDStr(date) {
   let d = date ? date : new Date();
   let yymmddstr =
@@ -19,7 +19,7 @@ function getYYMMDDStr(date) {
   return yymmddstr;
 }
 function formatTimeWithMillis(ms) {
-  if (typeof ms !== 'number' || ms < 0) return '';
+  if (typeof ms !== "number" || ms < 0) return "";
 
   const milliseconds = ms % 1000;
   const totalSeconds = Math.floor(ms / 1000);
@@ -28,13 +28,15 @@ function formatTimeWithMillis(ms) {
   const minutes = totalMinutes % 60;
   const hours = Math.floor(totalMinutes / 60);
 
-  const hh = String(hours).padStart(2, '0');
-  const mm = String(minutes).padStart(2, '0');
-  const ss = String(seconds).padStart(2, '0');
-  const mmm = String(milliseconds).padStart(3, '0');
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  const ss = String(seconds).padStart(2, "0");
+  const mmm = String(milliseconds).padStart(3, "0");
 
   return `${hh}:${mm}:${ss}.${mmm}`;
 }
+// #endregion
+
 function App() {
   console.log(window.location);
   var url = `http://${window.location.hostname}:3333/`;
@@ -47,7 +49,6 @@ function App() {
   const [pastId, setPastId] = useState([]);
   const [columns, setColumns] = useState([]);
   const [gcolumns, setGcolumns] = useState([]);
-
 
   const getDbRec = (kind) => {
     console.log(pastId);
@@ -118,26 +119,30 @@ function App() {
               default:
                 gcolumn.width = "70";
             }
-            if (NUM_COLUMNS.includes(key)) gcolumn.type = "number"; // 右寄席
+            if (NUM_COLUMNS.includes(key))
+              gcolumn.type = "number"; // 右寄席
             else if (["mod_date"].includes(key)) {
               gcolumn.type = "date"; // 日付
-              gcolumn.valueGetter =  (params) => {  // 表示用に「値そのもの」を取り出し・変換する
+              gcolumn.valueGetter = (params) => {
+                // 表示用に「値そのもの」を取り出し・変換する
                 const value = params;
                 if (!value) return "";
                 const date = new Date(value);
                 return date;
               };
-            }
-            else if (TIME_COLUMNS.concat(["from", "to"]).includes(key)) {
+            } else if (TIME_COLUMNS.concat(["from", "to"]).includes(key)) {
               gcolumn.type = "datetime"; // 日付
-              gcolumn.valueFormatter = (params) => {// 値を取得後、表示向けに文字列化する
+              gcolumn.valueFormatter = (params) => {
+                // 値を取得後、表示向けに文字列化する
                 const value = params;
                 if (!value) return "";
-                if ("exec_time" === key) {  // ミリ秒を表す数値として扱う場合
+                if ("exec_time" === key) {
+                  // ミリ秒を表す数値として扱う場合
                   const ms = Number(value);
                   if (isNaN(ms)) return "";
                   return formatTimeWithMillis(ms);
-                } else {  // 時間を hh:mm:ss 形式で表示
+                } else {
+                  // 時間を hh:mm:ss 形式で表示
                   const date = new Date(value);
                   if (isNaN(date)) return "";
                   if (["from", "to"].includes(key)) {
@@ -155,12 +160,12 @@ function App() {
           }
         });
         recs.forEach((r, i) => {
-          if (r._id)r.id = r._id;
-          else r.id = i;  // 添え字
+          if (r._id) r.id = r._id;
+          else r.id = i; // 添え字
         }); // DateGridは idが必須なのでそのパース
         setData(recs);
         // console.log(columns);
-        setColumns(columns);  // 削除予定　TODO
+        setColumns(columns); // 削除予定　TODO
         setGcolumns(gcolumns);
       })
       .catch((err) => {
@@ -264,17 +269,53 @@ function App() {
     }
     return { list: pastDays, defo: pastDays[0] };
   };
-const theme = createTheme({
-  components: {
-    MuiDataGrid: {
-      styleOverrides: {
-        columnHeaders: {
-          fontWeight: 'bold',
+  // テーマ？　テーブルのヘッダーを太字にするためだけ
+  const theme = createTheme({
+    components: {
+      MuiDataGrid: {
+        styleOverrides: {
+          columnHeaders: {
+            fontWeight: "bold",
+          },
         },
       },
     },
-  },
-});
+  });
+  // #region 画面の向きによって、テーブルのサイズを調整
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    function updateHeight() {
+      const isPortrait = window.matchMedia("(orientation: portrait)").matches;
+      // 縦向きの時はオフセット180px、横向きの時は130pxにする例
+      const offset = isPortrait ? 180 : 120;
+      setHeight(window.innerHeight - offset);
+      // 画面の向きによって表示件数を切り替え(machine数表示用)
+      const displayCount = isPortrait ? 2 : 10; // 例：縦=2件、横=4件
+      setMaxDisplay(displayCount);
+    }
+
+    updateHeight();
+
+    window.addEventListener("resize", updateHeight);
+    window.addEventListener("orientationchange", updateHeight); // モバイルの向き変更検知も追加
+
+    return () => {
+      window.removeEventListener("resize", updateHeight);
+      window.removeEventListener("orientationchange", updateHeight);
+    };
+  }, []);
+  const [maxDisplay, setMaxDisplay] = useState(2); // デフォルト表示数
+  const displayMachines = machines.slice(0, maxDisplay);
+  const hiddenCount = machines.length - maxDisplay;
+  // #endregion
+
+  // #region +N件表示用のツールチップ用
+  const [anchorEl, setAnchorEl] = useState(null);
+  const handleClick = (event) => { setAnchorEl(event.currentTarget); };
+  const handleClose = () => { setAnchorEl(null); };
+  const open = Boolean(anchorEl);
+  // #endregion
+
   return (
     <div className="App" style={{ padding: "10px 20px" }}>
       {/* 
@@ -302,7 +343,12 @@ const theme = createTheme({
         </button>
 
         <div className="d-flex align-items-center gap-2" style={{ width: "auto", minWidth: 0 }}>
-          <select className="form-select form-select-sm" style={{ width: "auto", minWidth: "6rem" }} value={pastId} onChange={(event) => setPastId(event.target.value)}>
+          <select
+            className="form-select form-select-sm"
+            style={{ width: "auto", minWidth: "6rem" }}
+            value={pastId}
+            onChange={(event) => setPastId(event.target.value)}
+          >
             {getPastDays().list.map((day) => (
               <option key={day} value={day}>
                 {day}
@@ -317,106 +363,67 @@ const theme = createTheme({
           </button>
         </div>
       </div>
-      {/* <div style={{ padding: "10px", overflow: "auto" }}>
-        <button className="btn btn-sm me-1 btn-primary" style={{ float: "left" }} onClick={() => getDbRec("psTotal1")}>
-          summaryTotal1
-        </button>
-        <button className="btn btn-sm me-1 btn-primary" style={{ float: "left" }} onClick={() => getDbRec("psDiff1")}>
-          summaryDiff1
-        </button>
-        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqNotDone")}>
-          queNotDone
-        </button>
-        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqPast")}>
-          quePast
-        </button>
-        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqNow")}>
-          execNow
-        </button>
-        <button className="btn btn-sm me-1 btn-success" style={{ float: "left" }} onClick={() => getDbRec("mqDone")}>
-          done
-        </button>
-        <div className="input-group mb-3 col">
-          <select className="" value={pastId} onChange={(event) => setPastId(event.target.value)}>
-            {getPastDays().list.map((day, i) => (
-              <option key={day} value={day}>
-                {day}
-              </option>
-            ))}
-          </select>
-          <button className="btn btn-sm me-1 btn-dark" onClick={() => getDbRec("mqhPast")}>
-            queHistoryPast
-          </button>
-          <button className="btn btn-sm me-1 btn-dark" onClick={() => getDbRec("mqhPastDone")}>
-            queHistoryPastDone
-          </button>
-        </div>
-      </div> */}
-      {/* <div style={{ padding: "0px 10PX", overflow: "auto" }} className="row align-items-center">
-        <div className="input-group mb-3 col"></div>
-      </div> */}
-      <div style={{ padding: "0px 20px", "flex-wrap": "wrap" }} className="row">
-        <div className="col">全 {size} 件</div>
-        {machines.map((machine) => (
-          <div className="col">
-            <span className="badge bg-secondary">{machine}</span>
-          </div>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "nowrap", alignItems: "center" }}>
+        <div className="col-2">全 {size} 件</div>
+        {displayMachines.map((machine, i) => (
+          <span key={i} className="badge bg-secondary" style={{ whiteSpace: "nowrap" }}>
+            {machine}
+          </span>
         ))}
+        {hiddenCount > 0 && (
+          <Tooltip
+            arrow
+            title={machines.slice(maxDisplay).join(", ")}
+            placement="top"
+            enterTouchDelay={0}
+            leaveTouchDelay={5000}
+          >
+            <span
+              style={{
+                cursor: "pointer",
+                padding: "0 8px",
+                backgroundColor: "#6c757d",
+                borderRadius: "12px",
+                color: "white",
+                whiteSpace: "nowrap",
+                userSelect: "none",
+              }}
+            >
+              +{hiddenCount}件
+            </span>
+          </Tooltip>
+        )}
       </div>
-      <Box sx={{ height: 480, p: 3 }} theme={theme}>
+      <Box
+        sx={{
+          height,
+          pt: 2,
+          "& .MuiTablePagination-selectRoot": {
+            display: "inline-flex !important",
+            minWidth: 60,
+          },
+          "& .MuiTablePagination-select": {
+            display: "inline-flex !important",
+            minWidth: 60,
+          },
+        }}
+        theme={theme}
+      >
         <DataGrid
           sx={{
             "--unstable_DataGrid-headWeight": "700", // bold 相当の数値（500や600より大きい値）
           }}
+          autoHeight={false} // 固定高さを維持
           rows={data}
           columns={gcolumns}
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true } }}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          // pageSizeOptions={[5, 10]}
-          pageSizeOptions={[10, 100, { value: -1, label: "All" }]} // ページネーションの1ページのサイズの選択肢
+          initialState={{ pagination: { paginationModel: { pageSize: -1 } } }}
+          pageSizeOptions={[10, 50, 100, { value: -1, label: "All" }]} // ページネーションの1ページのサイズの選択肢
           // disableRowSelectionOnClick
         />
       </Box>
-      {/* <div style={{ padding: "0px 20px", overflow: "auto", maxHeight: "525px" }}>
-        <table className="table" {...getTableProps()}>
-          <thead>
-            {headerGroups.map((headerGroup) => (
-              <tr {...headerGroup.getHeaderGroupProps()}>
-                {headerGroup.headers.map((column) => (
-                  <th {...column.getHeaderProps(combinedHeaderProps)}>{column.render("Header")}</th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody {...getTableBodyProps()}>
-            {rows.map((row, i) => {
-              prepareRow(row);
-              return (
-                <tr {...row.getRowProps()}>
-                  {row.cells.map((cell) => {
-                    // console.log(cell);
-                    return (
-                      <td {...cell.getCellProps(combinedCellProps)} className="text-nowrap">
-                        {cell.render("Cell")}
-                      </td>
-                    );
-                  })}
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            {headerGroups.map((headerGroup) => (
-              <tr {...headerGroup.getHeaderGroupProps()}>
-                {headerGroup.headers.map((column) => (
-                  <th {...column.getHeaderProps(combinedHeaderProps)}>{column.render("Header")}</th>
-                ))}
-              </tr>
-            ))}
-          </tfoot>
-        </table>
-      </div> */}
     </div>
   );
 }

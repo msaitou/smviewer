@@ -1,0 +1,19 @@
+cd smviewer // アプリ　ルート
+npm run build --prefix client
+cd client
+tar czf smclient.tar.gz .\build
+
+sftp saito@192.168.0.14
+cd work
+put smclient.tar.gz .
+
+ssh saito@192.168.0.14 
+cd work/smviewer/client/
+mv ~/work/smclient.tar.gz .
+
+rm -rf build_old
+mv build build_old
+tar xzf smclient.tar.gz 
+
+cd ~/work/smviewer/
+nohup node app.js > /dev/null &
